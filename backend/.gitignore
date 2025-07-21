@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.env
+.env.*
+
+# Logs and debugging
+*.log
+*.out
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Uploads
+uploads/
+
+# Chroma cache
+chroma.db/
+chroma_index/
