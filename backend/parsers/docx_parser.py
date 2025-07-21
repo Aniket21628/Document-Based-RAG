@@ -1,4 +1,4 @@
-from docx import Document
+from docx import Document # type: ignore
 from typing import Dict
 import logging
 

@@ -1,4 +1,4 @@
-from pptx import Presentation
+from pptx import Presentation # type: ignore
 from typing import Dict
 import logging
 

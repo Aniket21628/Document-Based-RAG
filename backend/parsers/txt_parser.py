@@ -1,4 +1,4 @@
-import markdown
+import markdown # type: ignore
 from typing import Dict
 import logging
 

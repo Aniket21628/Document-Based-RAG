@@ -1,4 +1,4 @@
-import google.generativeai as genai
+import google.generativeai as genai # type: ignore
 from agents.base_agent import BaseAgent
 from mcp.message_types import MCPMessage, MessageType, LLMRequest, LLMResponse
 from config import config
