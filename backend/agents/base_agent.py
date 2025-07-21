@@ -1,39 +1,31 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
-import asyncio
+from typing import List, Optional
+from mcp.message_types import MCPMessage, MessageType
+from mcp.message_bus import message_bus
 import logging
-from mcp.message_bus import message_bus, MCPMessage
 
 logger = logging.getLogger(__name__)
 
 class BaseAgent(ABC):
     def __init__(self, name: str):
         self.name = name
-        self.is_running = False
-    
-    async def start(self):
-        """Start the agent"""
-        self.is_running = True
-        await message_bus.subscribe(self.name, self.handle_message)
-        logger.info(f"Agent {self.name} started")
-    
-    async def stop(self):
-        """Stop the agent"""
-        self.is_running = False
-        logger.info(f"Agent {self.name} stopped")
+        self.subscribed_messages: List[MessageType] = []
     
     @abstractmethod
-    async def handle_message(self, message: MCPMessage):
-        """Handle incoming MCP messages"""
+    async def process_message(self, message: MCPMessage) -> Optional[MCPMessage]:
+        """Process incoming message and return response if needed"""
         pass
     
-    async def send_message(self, receiver: str, message_type, payload: Dict[str, Any], trace_id: str):
-        """Send an MCP message"""
-        message = MCPMessage.create(
-            sender=self.name,
-            receiver=receiver,
-            message_type=message_type,
-            payload=payload,
-            trace_id=trace_id
-        )
-        await message_bus.publish(message)
+    def subscribe_to_messages(self, message_types: List[MessageType]):
+        """Subscribe to specific message types"""
+        self.subscribed_messages = message_types
+        message_bus.subscribe(self.name, message_types, self.process_message)
+        logger.info(f"{self.name} subscribed to {[mt.value for mt in message_types]}")
+    
+    async def send_message(self, message: MCPMessage) -> Optional[MCPMessage]:
+        """Send message through the message bus"""
+        return await message_bus.publish(message)
+    
+    async def request_response(self, message: MCPMessage, timeout: int = 30) -> MCPMessage:
+        """Send message and wait for response"""
+        return await message_bus.request_response(message, timeout)

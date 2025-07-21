@@ -1,7 +1,10 @@
-import asyncio
-from typing import Dict, Any
 from agents.base_agent import BaseAgent
-from mcp.message_types import MCPMessage, MessageType
+from mcp.message_types import (
+    MCPMessage, MessageType, IngestionRequest, RetrievalRequest, LLMRequest
+)
+from mcp.message_bus import message_bus
+from typing import List, Dict, Any, Optional
+import uuid
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,101 +12,159 @@ logger = logging.getLogger(__name__)
 class CoordinatorAgent(BaseAgent):
     def __init__(self):
         super().__init__("CoordinatorAgent")
-        self.pending_requests: Dict[str, Dict[str, Any]] = {}
+        self.conversation_history: Dict[str, List[Dict[str, str]]] = {}
+        # Subscribe to STATUS messages to track processing updates
+        self.subscribe_to_messages([MessageType.STATUS])
     
-    async def handle_message(self, message: MCPMessage):
-        """Handle coordination messages"""
-        if message.type == MessageType.INGESTION_RESPONSE:
-            await self._handle_ingestion_response(message)
-        elif message.type == MessageType.LLM_RESPONSE:
-            await self._handle_llm_response(message)
-        elif message.type == MessageType.ERROR:
-            await self._handle_error_response(message)
-
-    async def process_document_upload(
-        self,
-        file_path: str,
-        file_name: str,
-        file_type: str,
-        trace_id: str | None = None
-    ) -> Dict[str, Any]:
-        """Coordinate document upload process"""
-
-        if trace_id is None:
-            trace_id = f"upload_{file_name}_{asyncio.get_event_loop().time()}"
-
-        # Store request info
-        self.pending_requests[trace_id] = {
-            'type': 'upload',
-            'status': 'processing',
-            'file_name': file_name
-        }
-
-        # Send to ingestion agent
-        await self.send_message(
-            receiver="IngestionAgent",
-            message_type=MessageType.INGESTION_REQUEST,
-            payload={
-                'file_path': file_path,
-                'file_name': file_name,
-                'file_type': file_type
-            },
-            trace_id=trace_id
-        )
-
-        return {'trace_id': trace_id, 'status': 'processing'}
-
-    
-    async def process_query(self, query: str) -> Dict[str, Any]:
-        """Coordinate query processing"""
-        trace_id = f"query_{asyncio.get_event_loop().time()}"
+    async def process_message(self, message: MCPMessage) -> Optional[MCPMessage]:
+        """Process incoming messages - required by BaseAgent"""
+        if message.type == MessageType.STATUS:
+            # Handle status updates from other agents
+            logger.info(f"Status update: {message.payload}")
+            return None
         
-        # Store request info
-        self.pending_requests[trace_id] = {
-            'type': 'query',
-            'status': 'processing',
-            'query': query
-        }
+        # CoordinatorAgent doesn't typically respond to messages directly
+        # It orchestrates workflows programmatically
+        return None
+    
+    async def process_documents(self, file_paths: List[str], file_types: List[str]) -> Dict[str, Any]:
+        """Process uploaded documents through the agent pipeline"""
+        trace_id = str(uuid.uuid4())
         
-        # Send to retrieval agent
-        await self.send_message(
-            receiver="RetrievalAgent",
-            message_type=MessageType.RETRIEVAL_REQUEST,
-            payload={
-                'query': query,
-                'n_results': 5
-            },
-            trace_id=trace_id
-        )
+        try:
+            # Step 1: Send to IngestionAgent
+            ingestion_message = MCPMessage(
+                trace_id=trace_id,
+                sender=self.name,
+                receiver="IngestionAgent",
+                type=MessageType.INGESTION_REQUEST,
+                payload=IngestionRequest(
+                    file_paths=file_paths,
+                    file_types=file_types
+                ).dict()
+            )
+            
+            ingestion_response = await message_bus.request_response(ingestion_message, timeout=60)
+            
+            if not ingestion_response.payload.get('success'):
+                return {
+                    'success': False,
+                    'error': ingestion_response.payload.get('error_message', 'Document processing failed')
+                }
+            
+            # Step 2: Send processed documents to RetrievalAgent for indexing
+            retrieval_message = MCPMessage(
+                trace_id=trace_id,
+                sender=self.name,
+                receiver="RetrievalAgent",
+                type=MessageType.INGESTION_RESPONSE,
+                payload=ingestion_response.payload
+            )
+            
+            await message_bus.publish(retrieval_message)
+            
+            return {
+                'success': True,
+                'processed_files': ingestion_response.payload.get('processed_files', []),
+                'message': 'Documents processed and indexed successfully'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing documents: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    async def answer_question(self, query: str, session_id: str = "default") -> Dict[str, Any]:
+        """Process user question through the RAG pipeline"""
+        trace_id = str(uuid.uuid4())
         
-        return {'trace_id': trace_id, 'status': 'processing'}
-    
-    async def _handle_ingestion_response(self, message: MCPMessage):
-        """Handle ingestion completion"""
-        trace_id = message.trace_id
-        if trace_id in self.pending_requests:
-            self.pending_requests[trace_id].update({
-                'status': 'completed',
-                'result': message.payload
+        try:
+            # Step 1: Retrieve relevant context
+            retrieval_message = MCPMessage(
+                trace_id=trace_id,
+                sender=self.name,
+                receiver="RetrievalAgent",
+                type=MessageType.RETRIEVAL_REQUEST,
+                payload=RetrievalRequest(
+                    query=query,
+                    top_k=5
+                ).dict()
+            )
+            
+            retrieval_response = await message_bus.request_response(retrieval_message, timeout=30)
+            
+            if retrieval_response.type == MessageType.ERROR:
+                return {
+                    'success': False,
+                    'error': retrieval_response.payload.get('error', 'Retrieval failed')
+                }
+            
+            # Step 2: Prepare context for LLM
+            retrieved_chunks = retrieval_response.payload.get('retrieved_chunks', [])
+            context = "\n\n".join([chunk['content'] for chunk in retrieved_chunks])
+            
+            # Get conversation history
+            conversation_history = self.conversation_history.get(session_id, [])
+            
+            # Step 3: Generate response using LLM
+            llm_message = MCPMessage(
+                trace_id=trace_id,
+                sender=self.name,
+                receiver="LLMResponseAgent",
+                type=MessageType.LLM_REQUEST,
+                payload={
+                    **LLMRequest(
+                        query=query,
+                        context=context,
+                        conversation_history=conversation_history
+                    ).dict(),
+                    'retrieved_chunks': retrieved_chunks  # Pass for source extraction
+                }
+            )
+            
+            llm_response = await message_bus.request_response(llm_message, timeout=60)
+            
+            if llm_response.type == MessageType.ERROR:
+                return {
+                    'success': False,
+                    'error': llm_response.payload.get('error', 'LLM generation failed')
+                }
+            
+            # Update conversation history
+            if session_id not in self.conversation_history:
+                self.conversation_history[session_id] = []
+            
+            self.conversation_history[session_id].append({
+                'user': query,
+                'assistant': llm_response.payload['answer']
             })
+            
+            # Keep only last 10 turns
+            if len(self.conversation_history[session_id]) > 10:
+                self.conversation_history[session_id] = self.conversation_history[session_id][-10:]
+            
+            return {
+                'success': True,
+                'answer': llm_response.payload['answer'],
+                'sources': llm_response.payload.get('sources', []),
+                'confidence': llm_response.payload.get('confidence', 0.0),
+                'retrieved_chunks': retrieved_chunks
+            }
+            
+        except Exception as e:
+            logger.error(f"Error answering question: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
     
-    async def _handle_llm_response(self, message: MCPMessage):
-        """Handle LLM response completion"""
-        trace_id = message.trace_id
-        if trace_id in self.pending_requests:
-            self.pending_requests[trace_id].update({
-                'status': 'completed',
-                'result': message.payload
-            })
+    def get_conversation_history(self, session_id: str) -> List[Dict[str, str]]:
+        """Get conversation history for a session"""
+        return self.conversation_history.get(session_id, [])
     
-    async def _handle_error_response(self, message: MCPMessage):
-        """Handle error responses"""
-        trace_id = message.trace_id
-        if trace_id in self.pending_requests:
-            self.pending_requests[trace_id].update({
-                'status': 'error',
-                'error': message.payload.get('error')
-            })
-    
-    def get_request_status(self, trace_id: str) -> Dict[str, Any] | None:
-        return self.pending_requests.get(trace_id)
+    def clear_conversation_history(self, session_id: str):
+        """Clear conversation history for a session"""
+        if session_id in self.conversation_history:
+            del self.conversation_history[session_id]

@@ -1,16 +1,35 @@
 import os
-from dotenv import load_dotenv
+from typing import Optional
+import dotenv
 
-load_dotenv()
+# Load environment variables from .env file
+dotenv.load_dotenv()
 
 class Config:
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    CHROMA_PERSIST_DIRECTORY = "./chroma_db"
-    UPLOAD_DIRECTORY = "./uploads"
-    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-    CHUNK_SIZE = 1000
-    CHUNK_OVERLAP = 200
+    # Google Gemini API
+    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
     
-    # MCP Configuration
-    MCP_TIMEOUT = 30
-    MAX_RETRIES = 3
+    # ChromaDB Settings
+    CHROMA_PERSIST_DIRECTORY: str = "./chroma_db"
+    CHROMA_COLLECTION_NAME: str = "documents"
+    
+    # Embedding Model
+    EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
+    
+    # File Upload Settings
+    MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
+    UPLOAD_DIRECTORY: str = "./uploads"
+    
+    # Server Settings
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+    
+    # MCP Settings
+    MCP_TIMEOUT: int = 30
+    
+    @classmethod
+    def validate(cls):
+        if not cls.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY environment variable is required")
+
+config = Config()
