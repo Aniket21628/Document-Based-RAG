@@ -1,6 +1,6 @@
 import asyncio
 from typing import Dict, List, Callable, Any
-from .message_types import MCPMessage, MessageType
+from mcp.message_types import MCPMessage, MessageType
 import logging
 
 logger = logging.getLogger(__name__)

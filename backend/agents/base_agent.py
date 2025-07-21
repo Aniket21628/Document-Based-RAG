@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict
 import asyncio
 import logging
-from ..mcp.message_bus import message_bus, MCPMessage
+from mcp.message_bus import message_bus, MCPMessage
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class GeminiClient:
     def __init__(self):
         genai.configure(api_key=Config.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-2.0-flash')
     
     async def generate_response(self, query: str, context_chunks: List[str]) -> str:
         """Generate response using Gemini with retrieved context"""

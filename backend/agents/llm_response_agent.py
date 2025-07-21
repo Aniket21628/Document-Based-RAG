@@ -1,6 +1,6 @@
-from .base_agent import BaseAgent
-from ..mcp.message_types import MCPMessage, MessageType
-from ..services.gemini_client import GeminiClient
+from agents.base_agent import BaseAgent
+from mcp.message_types import MCPMessage, MessageType
+from services.gemini_client import GeminiClient
 import logging
 
 logger = logging.getLogger(__name__)

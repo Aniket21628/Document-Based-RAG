@@ -1,6 +1,6 @@
-from .base_agent import BaseAgent
-from ..mcp.message_types import MCPMessage, MessageType
-from ..services.vector_store import ChromaVectorStore
+from agents.base_agent import BaseAgent
+from mcp.message_types import MCPMessage, MessageType
+from services.vector_store import ChromaVectorStore
 import logging
 
 logger = logging.getLogger(__name__)

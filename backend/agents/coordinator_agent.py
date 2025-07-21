@@ -1,7 +1,7 @@
 import asyncio
 from typing import Dict, Any
-from .base_agent import BaseAgent
-from ..mcp.message_types import MCPMessage, MessageType
+from agents.base_agent import BaseAgent
+from mcp.message_types import MCPMessage, MessageType
 import logging
 
 logger = logging.getLogger(__name__)
