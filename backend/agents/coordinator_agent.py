@@ -19,18 +19,26 @@ class CoordinatorAgent(BaseAgent):
             await self._handle_llm_response(message)
         elif message.type == MessageType.ERROR:
             await self._handle_error_response(message)
-    
-    async def process_document_upload(self, file_path: str, file_name: str, file_type: str) -> Dict[str, Any]:
+
+    async def process_document_upload(
+        self,
+        file_path: str,
+        file_name: str,
+        file_type: str,
+        trace_id: str | None = None
+    ) -> Dict[str, Any]:
         """Coordinate document upload process"""
-        trace_id = f"upload_{file_name}_{asyncio.get_event_loop().time()}"
-        
+
+        if trace_id is None:
+            trace_id = f"upload_{file_name}_{asyncio.get_event_loop().time()}"
+
         # Store request info
         self.pending_requests[trace_id] = {
             'type': 'upload',
             'status': 'processing',
             'file_name': file_name
         }
-        
+
         # Send to ingestion agent
         await self.send_message(
             receiver="IngestionAgent",
@@ -42,8 +50,9 @@ class CoordinatorAgent(BaseAgent):
             },
             trace_id=trace_id
         )
-        
+
         return {'trace_id': trace_id, 'status': 'processing'}
+
     
     async def process_query(self, query: str) -> Dict[str, Any]:
         """Coordinate query processing"""
@@ -96,6 +105,5 @@ class CoordinatorAgent(BaseAgent):
                 'error': message.payload.get('error')
             })
     
-    def get_request_status(self, trace_id: str) -> Dict[str, Any]:
-        """Get status of a request"""
-        return self.pending_requests.get(trace_id, {'status': 'not_found'})
+    def get_request_status(self, trace_id: str) -> Dict[str, Any] | None:
+        return self.pending_requests.get(trace_id)
