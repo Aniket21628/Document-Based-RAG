@@ -113,6 +113,8 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         await initialize_agents()
 
     try:
+        upload_dir = os.environ.get("UPLOAD_DIR", "/tmp/uploads")
+        os.makedirs(upload_dir, exist_ok=True)
         supported_extensions = {'.pdf', '.docx', '.pptx', '.csv', '.txt', '.md'}
         file_paths = []
 
@@ -122,16 +124,17 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                 raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
 
             file_id = str(uuid.uuid4())
-            file_path = os.path.join(Config.UPLOAD_DIRECTORY, f"{file_id}_{file.filename}")
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            file_path = os.path.join(upload_dir, f"{file_id}_{file.filename}")
 
             with open(file_path, "wb") as f:
                 f.write(await file.read())
 
             file_paths.append(file_path)
 
-        # Process documents
-        result = await coordinator.process_documents(file_paths, [os.path.splitext(f)[1][1:] for f in file_paths])
+        result = await coordinator.process_documents(
+            file_paths, 
+            [os.path.splitext(f)[1][1:] for f in file_paths]
+        )
         return UploadResponse(**result)
 
     except Exception as e:
