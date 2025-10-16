@@ -18,7 +18,7 @@ class Config:
     
     # File Upload Settings
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
-    UPLOAD_DIRECTORY: str = "./uploads"
+    UPLOAD_DIRECTORY= os.environ.get("UPLOAD_DIR", "/tmp/uploads")
     
     # Server Settings
     HOST: str = "0.0.0.0"

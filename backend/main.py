@@ -3,6 +3,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from uvicorn import Config
 
 # -----------------------------
 # Logging
@@ -121,7 +122,7 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                 raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
 
             file_id = str(uuid.uuid4())
-            file_path = os.path.join("uploads", f"{file_id}_{file.filename}")
+            file_path = os.path.join(Config.UPLOAD_DIRECTORY, f"{file_id}_{file.filename}")
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
             with open(file_path, "wb") as f:
