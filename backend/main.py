@@ -1,3 +1,7 @@
+import logging, sys, traceback
+logging.basicConfig(level=logging.INFO)
+print(">>> main.py started")
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,11 +13,17 @@ import asyncio
 import logging
 
 # Import agents
-from agents.ingestion_agent import IngestionAgent
-from agents.retrieval_agent import RetrievalAgent
-from agents.llm_response_agent import LLMResponseAgent
-from agents.coordinator_agent import CoordinatorAgent
-from config import Config
+try:
+    from agents.ingestion_agent import IngestionAgent
+    from agents.retrieval_agent import RetrievalAgent
+    from agents.llm_response_agent import LLMResponseAgent
+    from agents.coordinator_agent import CoordinatorAgent
+    from config import Config
+except Exception as e:
+    print(">>> IMPORT ERROR:", e)
+    traceback.print_exc()
+    sys.exit(1)
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
