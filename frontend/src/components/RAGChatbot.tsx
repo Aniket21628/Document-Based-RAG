@@ -49,10 +49,16 @@ const RAGChatbot: React.FC = () => {
     Array.from(files).forEach(file => formData.append('files', file));
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+
       const response = await fetch(`${API_BASE_URL}/upload`, {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const result = await response.json();
 
@@ -77,6 +83,16 @@ const RAGChatbot: React.FC = () => {
         ]);
       }
     } catch (error: any) {
+      if (error.name === 'AbortError') {
+      setMessages(prev => [
+        ...prev,
+        {
+          type: 'error',
+          content: `❌ Upload timeout: Request took too long`,
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ]);
+    } else {
       setMessages(prev => [
         ...prev,
         {
@@ -85,10 +101,11 @@ const RAGChatbot: React.FC = () => {
           timestamp: new Date().toLocaleTimeString()
         }
       ]);
-    } finally {
-      setIsUploading(false);
-    }
-  };
+    } 
+      } finally {
+          setIsUploading(false);
+        }
+      };
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;

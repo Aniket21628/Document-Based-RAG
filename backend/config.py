@@ -2,15 +2,17 @@ import os
 from typing import Optional
 import dotenv
 
-# Load environment variables from .env file
 dotenv.load_dotenv()
 
 class Config:
     # Google Gemini API
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
     
-    # ChromaDB Settings
-    CHROMA_PERSIST_DIRECTORY: str = "./chroma_db"
+    # ChromaDB Settings - Use /opt/render/project for persistence
+    CHROMA_PERSIST_DIRECTORY: str = os.getenv(
+        "CHROMA_PERSIST_DIR", 
+        "/opt/render/project/src/chroma_db"  # Render persistent path
+    )
     CHROMA_COLLECTION_NAME: str = "documents"
     
     # Embedding Model
@@ -18,11 +20,14 @@ class Config:
     
     # File Upload Settings
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
-    UPLOAD_DIRECTORY= os.environ.get("UPLOAD_DIR", "/tmp/uploads")
+    UPLOAD_DIRECTORY = os.getenv(
+        "UPLOAD_DIR", 
+        "/opt/render/project/src/uploads"  # Render persistent path
+    )
     
     # Server Settings
     HOST: str = "0.0.0.0"
-    PORT: int = 8000
+    PORT: int = int(os.getenv("PORT", 8000))
     
     # MCP Settings
     MCP_TIMEOUT: int = 30

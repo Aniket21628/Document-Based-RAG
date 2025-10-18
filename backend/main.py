@@ -3,14 +3,12 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from uvicorn import Config
-
-# -----------------------------
-# Logging
-# -----------------------------
-logging.basicConfig(level=logging.INFO)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
-print(">>> main.py started")
 
 # -----------------------------
 # FastAPI app
@@ -19,7 +17,11 @@ app = FastAPI(title="Agentic RAG Chatbot", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://agentic-rag-v0g1.onrender.com/"],  # React app URL
+    allow_origins=[
+        "http://localhost:5173", 
+        "https://agentic-rag-v0g1.onrender.com",  # Remove trailing slash
+        "https://your-frontend-domain.onrender.com"  # Add your actual frontend URL
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -109,36 +111,59 @@ async def health_check():
 
 @app.post("/upload", response_model=UploadResponse)
 async def upload_documents(files: List[UploadFile] = File(...)):
+    logger.info(f"Received upload request with {len(files)} files")
+    
     if not agents_initialized:
+        logger.info("Initializing agents...")
         await initialize_agents()
 
     try:
-        upload_dir = os.environ.get("UPLOAD_DIR", "/tmp/uploads")
+        from config import Config
+        upload_dir = Config.UPLOAD_DIRECTORY
+        
+        # Ensure upload directory exists
         os.makedirs(upload_dir, exist_ok=True)
+        logger.info(f"Upload directory: {upload_dir}")
+        
         supported_extensions = {'.pdf', '.docx', '.pptx', '.csv', '.txt', '.md'}
         file_paths = []
 
         for file in files:
+            logger.info(f"Processing file: {file.filename}, size: {file.size if hasattr(file, 'size') else 'unknown'}")
+            
             ext = os.path.splitext(file.filename)[1].lower()
             if ext not in supported_extensions:
+                logger.error(f"Unsupported file type: {ext}")
                 raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
 
             file_id = str(uuid.uuid4())
             file_path = os.path.join(upload_dir, f"{file_id}_{file.filename}")
 
-            with open(file_path, "wb") as f:
-                f.write(await file.read())
+            # Write file with error handling
+            try:
+                content = await file.read()
+                logger.info(f"Read {len(content)} bytes from {file.filename}")
+                
+                with open(file_path, "wb") as f:
+                    f.write(content)
+                    
+                logger.info(f"Saved file to: {file_path}")
+                file_paths.append(file_path)
+            except Exception as e:
+                logger.error(f"Error saving file {file.filename}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error saving file: {str(e)}")
 
-            file_paths.append(file_path)
-
+        logger.info(f"Processing {len(file_paths)} files...")
         result = await coordinator.process_documents(
             file_paths, 
             [os.path.splitext(f)[1][1:] for f in file_paths]
         )
+        
+        logger.info(f"Processing result: {result}")
         return UploadResponse(**result)
 
     except Exception as e:
-        logger.error(f"Upload error: {e}")
+        logger.error(f"Upload error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ask", response_model=QuestionResponse)
