@@ -7,12 +7,10 @@ dotenv.load_dotenv()
 class Config:
     # Google Gemini API
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
-    
-    # ChromaDB Settings - Use /opt/render/project for persistence
-    CHROMA_PERSIST_DIRECTORY: str = os.getenv(
-        "CHROMA_PERSIST_DIR", 
-        "/opt/render/project/src/chroma_db"  # Render persistent path
-    )
+    if os.name == "nt":  # Windows
+        CHROMA_PERSIST_DIRECTORY = os.path.join(os.getcwd(), "chroma_db")
+    else:
+        CHROMA_PERSIST_DIRECTORY = "/opt/render/project/src/chroma_db"
     CHROMA_COLLECTION_NAME: str = "documents"
     
     # Embedding Model
@@ -22,15 +20,12 @@ class Config:
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
     UPLOAD_DIRECTORY = os.getenv(
         "UPLOAD_DIR", 
-        "/opt/render/project/src/uploads"  # Render persistent path
+        "/opt/render/project/src/uploads"
     )
     
     # Server Settings
     HOST: str = "0.0.0.0"
     PORT: int = int(os.getenv("PORT", 8000))
-    
-    # MCP Settings
-    MCP_TIMEOUT: int = 30
     
     @classmethod
     def validate(cls):

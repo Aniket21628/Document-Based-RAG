@@ -1,8 +1,16 @@
-import logging, os, uuid, asyncio
+import logging
+import os
+import uuid
+from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+import google.generativeai as genai
+
+from config import config
+from document_parser import DocumentProcessor
+from vector_store import VectorStore
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -10,32 +18,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# -----------------------------
-# FastAPI app
-# -----------------------------
-app = FastAPI(title="Agentic RAG Chatbot", version="1.0.0")
+# Initialize FastAPI app
+app = FastAPI(title="Simple RAG Chatbot", version="1.0.0")
 
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173", 
-        "https://agentic-rag-v0g1.onrender.com",  # Remove trailing slash
-        "https://your-frontend-domain.onrender.com"  # Add your actual frontend URL
+        "http://localhost:5173",
+        "https://agentic-rag-v0g1.onrender.com",
+        "https://agentic-rag-backend-1w20.onrender.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# -----------------------------
 # Global variables
-# -----------------------------
-agents_initialized = False
-coordinator = None
+vector_store: Optional[VectorStore] = None
+doc_processor: Optional[DocumentProcessor] = None
+conversation_history: Dict[str, List[Dict[str, str]]] = {}
+gemini_model = None
 
-# -----------------------------
-# Request / Response Models
-# -----------------------------
+# Pydantic models
 class QuestionRequest(BaseModel):
     question: str
     session_id: Optional[str] = "default"
@@ -53,143 +58,229 @@ class UploadResponse(BaseModel):
     message: Optional[str] = None
     error: Optional[str] = None
 
-# -----------------------------
-# Lazy Agent Initialization
-# -----------------------------
-async def initialize_agents():
-    """Initialize agents lazily on first request"""
-    global agents_initialized, coordinator
-
-    if agents_initialized:
-        return
-
+def initialize_services():
+    """Initialize services on startup"""
+    global vector_store, doc_processor, gemini_model
+    
     try:
-        # Import agents here to avoid blocking startup
-        from agents.ingestion_agent import IngestionAgent
-        from agents.retrieval_agent import RetrievalAgent
-        from agents.llm_response_agent import LLMResponseAgent
-        from agents.coordinator_agent import CoordinatorAgent
-        from config import Config
-
-        # Validate config (optional)
-        try:
-            Config.validate()
-        except Exception as e:
-            logger.warning(f"Config validation skipped/fails: {e}")
-
-        # Ensure upload directory exists
-        os.makedirs(Config.UPLOAD_DIRECTORY, exist_ok=True)
-
-        # Initialize agents
-        ingestion_agent = IngestionAgent()
-        retrieval_agent = RetrievalAgent()
-        llm_response_agent = LLMResponseAgent()
-        coordinator = CoordinatorAgent()
-
-        # Small delay to ensure setup
-        await asyncio.sleep(0.1)
-        agents_initialized = True
-        logger.info("Agents initialized successfully")
-
+        logger.info("Initializing services...")
+        
+        # Validate config
+        config.validate()
+        
+        # Create directories
+        os.makedirs(config.UPLOAD_DIRECTORY, exist_ok=True)
+        os.makedirs(config.CHROMA_PERSIST_DIRECTORY, exist_ok=True)
+        
+        # Initialize Gemini
+        genai.configure(api_key=config.GEMINI_API_KEY)
+        gemini_model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        
+        # Initialize vector store
+        vector_store = VectorStore(
+            persist_directory=config.CHROMA_PERSIST_DIRECTORY,
+            collection_name=config.CHROMA_COLLECTION_NAME,
+            embedding_model=config.EMBEDDING_MODEL
+        )
+        
+        # Initialize document processor
+        doc_processor = DocumentProcessor()
+        
+        logger.info("Services initialized successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize agents: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Agent initialization failed: {str(e)}")
+        logger.error(f"Failed to initialize services: {str(e)}")
+        raise
 
-# -----------------------------
-# API Endpoints
-# -----------------------------
+@app.on_event("startup")
+async def startup_event():
+    """Run initialization on startup"""
+    initialize_services()
+
 @app.get("/")
 def root():
-    return {"message": "Agentic RAG Chatbot API is running"}
+    return {"message": "Simple RAG Chatbot API is running"}
 
 @app.get("/health")
-async def health_check():
+def health_check():
     return {
         "status": "healthy",
-        "agents_initialized": agents_initialized,
+        "services": {
+            "vector_store": vector_store is not None,
+            "doc_processor": doc_processor is not None,
+            "gemini": gemini_model is not None
+        }
     }
 
 @app.post("/upload", response_model=UploadResponse)
 async def upload_documents(files: List[UploadFile] = File(...)):
+    """Upload and process documents"""
     logger.info(f"Received upload request with {len(files)} files")
     
-    if not agents_initialized:
-        logger.info("Initializing agents...")
-        await initialize_agents()
-
     try:
-        from config import Config
-        upload_dir = Config.UPLOAD_DIRECTORY
-        
-        # Ensure upload directory exists
-        os.makedirs(upload_dir, exist_ok=True)
-        logger.info(f"Upload directory: {upload_dir}")
-        
         supported_extensions = {'.pdf', '.docx', '.pptx', '.csv', '.txt', '.md'}
         file_paths = []
+        processed_files = []
 
+        # Save files
         for file in files:
-            logger.info(f"Processing file: {file.filename}, size: {file.size if hasattr(file, 'size') else 'unknown'}")
-            
             ext = os.path.splitext(file.filename)[1].lower()
             if ext not in supported_extensions:
-                logger.error(f"Unsupported file type: {ext}")
                 raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
 
             file_id = str(uuid.uuid4())
-            file_path = os.path.join(upload_dir, f"{file_id}_{file.filename}")
+            file_path = os.path.join(config.UPLOAD_DIRECTORY, f"{file_id}_{file.filename}")
+            
+            content = await file.read()
+            with open(file_path, "wb") as f:
+                f.write(content)
+            
+            file_paths.append(file_path)
+            logger.info(f"Saved file: {file.filename}")
 
-            # Write file with error handling
+        # Process documents
+        for file_path in file_paths:
             try:
-                content = await file.read()
-                logger.info(f"Read {len(content)} bytes from {file.filename}")
-                
-                with open(file_path, "wb") as f:
-                    f.write(content)
-                    
-                logger.info(f"Saved file to: {file_path}")
-                file_paths.append(file_path)
+                document = doc_processor.process_file(file_path)
+                vector_store.add_document(document)
+                processed_files.append(os.path.basename(file_path))
+                logger.info(f"Processed and indexed: {os.path.basename(file_path)}")
             except Exception as e:
-                logger.error(f"Error saving file {file.filename}: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error saving file: {str(e)}")
+                logger.error(f"Error processing {file_path}: {str(e)}")
+                continue
 
-        logger.info(f"Processing {len(file_paths)} files...")
-        result = await coordinator.process_documents(
-            file_paths, 
-            [os.path.splitext(f)[1][1:] for f in file_paths]
+        return UploadResponse(
+            success=True,
+            processed_files=processed_files,
+            message=f"Successfully processed {len(processed_files)} file(s)"
         )
-        
-        logger.info(f"Processing result: {result}")
-        return UploadResponse(**result)
 
     except Exception as e:
         logger.error(f"Upload error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        return UploadResponse(
+            success=False,
+            error=str(e)
+        )
 
 @app.post("/ask", response_model=QuestionResponse)
 async def ask_question(request: QuestionRequest):
-    if not agents_initialized:
-        await initialize_agents()
-
-    if not request.question.strip():
-        raise HTTPException(status_code=400, detail="Question cannot be empty")
-
+    """Ask a question based on uploaded documents"""
+    logger.info(f"Received question: {request.question}")
+    
     try:
-        result = await coordinator.answer_question(query=request.question, session_id=request.session_id)
-        return QuestionResponse(**result)
+        if not request.question.strip():
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+
+        # Retrieve relevant documents
+        results = vector_store.similarity_search(request.question, top_k=5)
+        
+        if not results:
+            return QuestionResponse(
+                success=True,
+                answer="I don't have enough information to answer that question. Please upload relevant documents first.",
+                sources=[],
+                confidence=0.0
+            )
+
+        # Prepare context
+        context = "\n\n".join([r['content'] for r in results])
+        
+        # Get conversation history
+        history = conversation_history.get(request.session_id, [])
+        
+        # Create prompt
+        prompt = create_prompt(request.question, context, history)
+        
+        # Generate answer
+        response = gemini_model.generate_content(prompt)
+        answer = response.text
+        
+        # Extract sources
+        sources = []
+        for result in results:
+            metadata = result.get('metadata', {})
+            file_path = metadata.get('file_path', 'Unknown')
+            filename = os.path.basename(file_path)
+            file_type = metadata.get('file_type', 'Unknown')
+            source = f"{filename} ({file_type})"
+            if source not in sources:
+                sources.append(source)
+        
+        # Calculate confidence
+        confidence = min(0.9, len(context) / 2000)
+        
+        # Update conversation history
+        if request.session_id not in conversation_history:
+            conversation_history[request.session_id] = []
+        
+        conversation_history[request.session_id].append({
+            'user': request.question,
+            'assistant': answer
+        })
+        
+        # Keep only last 10 turns
+        if len(conversation_history[request.session_id]) > 10:
+            conversation_history[request.session_id] = conversation_history[request.session_id][-10:]
+        
+        return QuestionResponse(
+            success=True,
+            answer=answer,
+            sources=sources,
+            confidence=confidence
+        )
+
     except Exception as e:
-        logger.error(f"Question processing error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Question processing error: {str(e)}", exc_info=True)
+        return QuestionResponse(
+            success=False,
+            error=str(e)
+        )
 
 @app.get("/conversation/{session_id}")
-async def get_conversation_history(session_id: str):
-    if not agents_initialized:
-        await initialize_agents()
-    return {"session_id": session_id, "history": coordinator.get_conversation_history(session_id)}
+def get_conversation_history(session_id: str):
+    """Get conversation history for a session"""
+    return {
+        "session_id": session_id,
+        "history": conversation_history.get(session_id, [])
+    }
 
 @app.delete("/conversation/{session_id}")
-async def clear_conversation_history(session_id: str):
-    if not agents_initialized:
-        await initialize_agents()
-    coordinator.clear_conversation_history(session_id)
+def clear_conversation_history(session_id: str):
+    """Clear conversation history for a session"""
+    if session_id in conversation_history:
+        del conversation_history[session_id]
     return {"message": f"Conversation history cleared for {session_id}"}
+
+def create_prompt(query: str, context: str, history: List[Dict[str, str]]) -> str:
+    """Create a prompt for Gemini"""
+    history_text = ""
+    if history:
+        history_text = "\n\nPrevious Conversation:\n"
+        for turn in history[-3:]:
+            history_text += f"User: {turn.get('user', '')}\n"
+            history_text += f"Assistant: {turn.get('assistant', '')}\n"
+    
+    prompt = f"""You are a helpful AI assistant that answers questions based on provided document context.
+
+CONTEXT FROM DOCUMENTS:
+{context}
+
+{history_text}
+
+CURRENT QUESTION: {query}
+
+Please provide a comprehensive answer based on the context provided. If the context doesn't contain enough information to fully answer the question, clearly state what information is missing. Always cite which parts of the context you're using to support your answer.
+
+Rules:
+1. Base your answer primarily on the provided context
+2. Be specific and detailed in your response
+3. If you mention specific data or facts, indicate which document/source it came from
+4. If the context is insufficient, clearly state what additional information would be needed
+5. Maintain a helpful and professional tone
+
+Answer:"""
+    
+    return prompt
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host=config.HOST, port=config.PORT)
