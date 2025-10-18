@@ -14,7 +14,7 @@ class Config:
     CHROMA_COLLECTION_NAME: str = "documents"
     
     # Embedding Model
-    EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
+    EMBEDDING_MODEL: str = "paraphrase-MiniLM-L3-v2"
     
     # File Upload Settings
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
