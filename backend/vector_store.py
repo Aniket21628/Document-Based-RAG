@@ -17,19 +17,23 @@ class VectorStore:
     def __init__(self, persist_directory: str, collection_name: str, embedding_model: str):
         self.logger = logging.getLogger(__name__)
 
-        self.persist_directory = persist_directory
+        # Use /tmp if persist_directory is not writable (Render only allows /tmp)
+        self.persist_directory = os.getenv("CHROMA_PERSIST_DIRECTORY", "/tmp/chroma_db")
+        os.makedirs(self.persist_directory, exist_ok=True)  # ✅ ensure folder exists & writable
+
         self.collection_name = collection_name
-        
+
         # Initialize embedding model
-        logger.info(f"Loading embedding model: {embedding_model}")
+        self.logger.info(f"Loading embedding model: {embedding_model}")
         self.cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
         self.embedding_model = embedding_model  # Keep for logging only
-        
-        # Initialize ChromaDB client with retry logic
+
+        # Initialize ChromaDB client
         self.client = self._initialize_client()
-        
-        # Get or create collection with error handling
+
+        # Get or create collection
         self.collection = self._get_or_create_collection()
+
     
     def _initialize_client(self):
         """Initialize ChromaDB client with error handling and a consistent writable path."""

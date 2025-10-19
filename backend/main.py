@@ -39,6 +39,9 @@ doc_processor: Optional[DocumentProcessor] = None
 conversation_history: Dict[str, List[Dict[str, str]]] = {}
 gemini_model = None
 
+print("Writable dirs check:", os.access("/tmp", os.W_OK))
+print("Writable dirs check:", os.access(config.UPLOAD_DIRECTORY, os.W_OK))
+
 # Pydantic models
 class QuestionRequest(BaseModel):
     question: str
