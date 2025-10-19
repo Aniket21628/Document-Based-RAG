@@ -1,3 +1,4 @@
+from urllib import response
 import chromadb
 from chromadb.config import Settings
 import cohere
@@ -7,8 +8,6 @@ import uuid
 import shutil
 import os
 import time
-
-chromadb.config.Settings(anonymized_telemetry=False)
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +149,11 @@ class VectorStore:
                 chunk_metadata = {k: str(v) for k, v in chunk_metadata.items()}
                 
                 # Generate embedding
-                response = self.cohere_client.embed(texts=[chunk], model="embed-english-v3.0")
+                response = self.cohere_client.embed(
+                    texts=[chunk],
+                    model="embed-english-v3.0",
+                    input_type="search_document"
+                )
                 embedding = response.embeddings[0]
 
                 chunk_ids.append(chunk_id)
@@ -182,7 +185,11 @@ class VectorStore:
                 return []
             
             # Generate query embedding
-            response = self.cohere_client.embed(texts=[query], model="embed-english-v3.0")
+            response = self.cohere_client.embed(
+                texts=[query],
+                model="embed-english-v3.0",
+                input_type="search_query"
+            )
             query_embedding = response.embeddings[0]
 
             # Adjust top_k if collection has fewer items

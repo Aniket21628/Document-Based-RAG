@@ -6,7 +6,6 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
-
 from config import config
 from document_parser import DocumentProcessor
 from vector_store import VectorStore
