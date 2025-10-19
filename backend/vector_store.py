@@ -32,10 +32,16 @@ class VectorStore:
         self.collection = self._get_or_create_collection()
     
     def _initialize_client(self):
-        """Initialize ChromaDB client with error handling"""
+        """Initialize ChromaDB client with error handling and a consistent writable path."""
         try:
-            # Use a writable directory on Render, fallback to local path when running locally
-            db_path = "/tmp/chroma_db" if os.getenv("RENDER") else self.persist_directory
+            # prefer explicit env override (set on Render), else use the provided persist_directory
+            db_path = os.getenv("CHROMA_PERSIST_DIRECTORY") or self.persist_directory or "/tmp/chroma_db"
+
+            # ensure the directory exists and is writable
+            os.makedirs(db_path, exist_ok=True)
+
+            # IMPORTANT: update the instance attribute so other methods use the same path
+            self.persist_directory = db_path
 
             client = chromadb.PersistentClient(
                 path=db_path,
@@ -49,6 +55,7 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Error initializing ChromaDB client: {str(e)}")
             raise
+
     
     def _get_or_create_collection(self):
         """Get or create collection with compatibility handling"""
@@ -84,27 +91,30 @@ class VectorStore:
 
 
     def _reset_and_create_collection(self):
-        self.logger.warning(f"Deleting incompatible ChromaDB data at: {self.persist_directory}")
-        import shutil, time
-
-        for attempt in range(3):
-            try:
-                shutil.rmtree(self.persist_directory, ignore_errors=True)
-                time.sleep(0.5)
-                if not os.path.exists(self.persist_directory):
-                    break
-            except Exception as e:
-                self.logger.error(f"Attempt {attempt + 1}: ChromaDB file busy, retrying in 1s...")
-                time.sleep(1)
+        if not self.persist_directory.startswith("/tmp"):
+            self.logger.warning(f"Refusing to delete non-temp path: {self.persist_directory}")
         else:
-            # 🚨 Instead of crashing, just log and continue
-            self.logger.warning(
-                f"Skipping deletion — could not fully remove ChromaDB at {self.persist_directory}. "
-                "It may be locked by another process."
-            )
+            self.logger.warning(f"Deleting incompatible ChromaDB data at: {self.persist_directory}")
+            import shutil, time
 
-        os.makedirs(self.persist_directory, exist_ok=True)
-        return self.client.create_collection(self.collection_name)
+            for attempt in range(3):
+                try:
+                    shutil.rmtree(self.persist_directory, ignore_errors=True)
+                    time.sleep(0.5)
+                    if not os.path.exists(self.persist_directory):
+                        break
+                except Exception as e:
+                    self.logger.error(f"Attempt {attempt + 1}: ChromaDB file busy, retrying in 1s...")
+                    time.sleep(1)
+            else:
+                # 🚨 Instead of crashing, just log and continue
+                self.logger.warning(
+                    f"Skipping deletion — could not fully remove ChromaDB at {self.persist_directory}. "
+                    "It may be locked by another process."
+                )
+
+            os.makedirs(self.persist_directory, exist_ok=True)
+            return self.client.create_collection(self.collection_name)
     
     def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
         """Split text into overlapping chunks"""

@@ -9,14 +9,17 @@ class Config:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY")
     COHERE_API_KEY: Optional[str] = os.getenv("COHERE_API_KEY")
     
-    # === Directories ===
-    if os.name == "nt":  # Windows
+# config.py (important lines)
+    if os.name == "nt":  # local Windows
         CHROMA_PERSIST_DIRECTORY = os.path.join(os.getcwd(), "chroma_db")
     else:
-        CHROMA_PERSIST_DIRECTORY = "/opt/render/project/src/chroma_db"
+        # Use /tmp on Render (writable)
+        CHROMA_PERSIST_DIRECTORY = os.getenv("CHROMA_PERSIST_DIRECTORY", "/tmp/chroma_db")
+
+    UPLOAD_DIRECTORY = os.getenv("UPLOAD_DIR", "/tmp/uploads")
+
     
     CHROMA_COLLECTION_NAME: str = "documents"
-    UPLOAD_DIRECTORY: str = os.getenv("UPLOAD_DIR", "/opt/render/project/src/uploads")
 
     # === Embeddings ===
     EMBEDDING_MODEL: str = "embed-english-v3.0"
