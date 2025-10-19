@@ -41,46 +41,6 @@ const RAGChatbot: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-    const handleResetMemory = async () => {
-    const confirmed = window.confirm("Are you sure you want to completely reset memory (delete all documents and embeddings)?");
-    if (!confirmed) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/reset`, { method: "POST" });
-      const data = await res.json();
-
-      if (data.status === "success") {
-        setMessages(prev => [
-          ...prev,
-          {
-            type: "system",
-            content: "🧹 Memory reset successfully. All documents and embeddings cleared.",
-            timestamp: new Date().toLocaleTimeString(),
-          },
-        ]);
-        setUploadedFiles([]);
-      } else {
-        setMessages(prev => [
-          ...prev,
-          {
-            type: "error",
-            content: `❌ Reset failed: ${data.message || "Unknown error"}`,
-            timestamp: new Date().toLocaleTimeString(),
-          },
-        ]);
-      }
-    } catch (err: any) {
-      setMessages(prev => [
-        ...prev,
-        {
-          type: "error",
-          content: `❌ Network error during reset: ${err.message}`,
-          timestamp: new Date().toLocaleTimeString(),
-        },
-      ]);
-    }
-  };
-
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
@@ -239,28 +199,17 @@ const RAGChatbot: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-            <div className="text-sm text-purple-200">
-              {uploadedFiles.length} document(s) indexed
+              <div className="text-sm text-purple-200">
+                {uploadedFiles.length} document(s) indexed
+              </div>
+              <button
+                onClick={clearConversation}
+                className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-red-300 hover:text-red-200 transition-colors"
+                title="Clear conversation"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-
-            {/* Reset Memory Button */}
-            <button
-              onClick={handleResetMemory}
-              className="p-2 bg-yellow-500/20 hover:bg-yellow-500/30 rounded-lg text-yellow-300 hover:text-yellow-200 transition-colors"
-              title="Reset memory (clear all documents and embeddings)"
-            >
-              <Loader className="w-4 h-4" />
-            </button>
-
-            {/* Clear Conversation Button */}
-            <button
-              onClick={clearConversation}
-              className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-red-300 hover:text-red-200 transition-colors"
-              title="Clear conversation"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
           </div>
         </div>
       </div>

@@ -295,44 +295,6 @@ Answer:"""
     
     return prompt
 
-@app.post("/reset")
-def reset_system():
-    """Reset the entire system — clears uploads, vector store, and memory."""
-    global vector_store, doc_processor, conversation_history
-
-    try:
-        logger.warning("⚠️ Resetting system — clearing vector store, uploads, and memory...")
-
-        # --- Clear ChromaDB data ---
-        if os.path.exists(config.CHROMA_PERSIST_DIRECTORY):
-            import shutil
-            shutil.rmtree(config.CHROMA_PERSIST_DIRECTORY, ignore_errors=True)
-            logger.info(f"Cleared ChromaDB data at: {config.CHROMA_PERSIST_DIRECTORY}")
-
-        # --- Clear uploaded files ---
-        if os.path.exists(config.UPLOAD_DIRECTORY):
-            import shutil
-            shutil.rmtree(config.UPLOAD_DIRECTORY, ignore_errors=True)
-            logger.info(f"Cleared uploaded files at: {config.UPLOAD_DIRECTORY}")
-
-        # --- Clear in-memory conversation data ---
-        conversation_history.clear()
-
-        # --- Recreate services from scratch ---
-        initialize_services()
-
-        return {
-            "success": True,
-            "message": "✅ System has been fully reset. All data and memory cleared."
-        }
-
-    except Exception as e:
-        logger.error(f"Reset failed: {str(e)}", exc_info=True)
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=config.HOST, port=config.PORT)
