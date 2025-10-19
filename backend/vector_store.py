@@ -62,8 +62,42 @@ class VectorStore:
 
     
     def _get_or_create_collection(self):
-        logger.info("Creating new ChromaDB collection (Render-safe mode).")
-        return self.client.create_collection(self.collection_name)
+        """Return an existing Chroma collection, or create one if it doesn't exist."""
+        try:
+            # Try to fetch existing
+            collection = self.client.get_collection(self.collection_name)
+            logger.info(f"Loaded existing collection: {self.collection_name}")
+            return collection
+
+        except Exception as e:
+            logger.warning(f"Collection not found or inaccessible: {e}")
+            logger.info(f"Creating new collection: {self.collection_name}")
+
+            try:
+                # Try to create new without deleting the whole DB
+                collection = self.client.create_collection(self.collection_name)
+                logger.info("New ChromaDB collection created successfully.")
+                return collection
+
+            except Exception as e2:
+                # This happens if the sqlite file was partially created or locked
+                logger.error(f"Error creating new collection: {e2}")
+                logger.warning("Falling back to a fresh temporary directory...")
+
+                # Create a fresh, writable location
+                import tempfile
+                fresh_path = tempfile.mkdtemp(prefix="chroma_fallback_")
+                logger.warning(f"Using fallback path for ChromaDB: {fresh_path}")
+
+                self.client = chromadb.PersistentClient(
+                    path=fresh_path,
+                    settings=Settings(
+                        anonymized_telemetry=False,
+                        allow_reset=True
+                    )
+                )
+                return self.client.create_collection(self.collection_name)
+
 
     def _create_collection(self):
         """Create a new collection"""
