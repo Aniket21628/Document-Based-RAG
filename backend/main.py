@@ -61,34 +61,46 @@ class UploadResponse(BaseModel):
     error: Optional[str] = None
 
 def initialize_services():
-    """Initialize services on startup"""
+    """Initialize services on startup (auto-clears ChromaDB + uploads each restart)"""
     global vector_store, doc_processor, gemini_model
     
     try:
         logger.info("Initializing services...")
-        
+
         # Validate config
         config.validate()
-        
-        # Create directories
-        os.makedirs(config.UPLOAD_DIRECTORY, exist_ok=True)
+
+        # Reset persisted data for a clean slate ---
+        if os.path.exists(config.CHROMA_PERSIST_DIRECTORY):
+            import shutil
+            shutil.rmtree(config.CHROMA_PERSIST_DIRECTORY, ignore_errors=True)
+            logger.warning(f"Cleared existing ChromaDB data at: {config.CHROMA_PERSIST_DIRECTORY}")
+
+        if os.path.exists(config.UPLOAD_DIRECTORY):
+            import shutil
+            shutil.rmtree(config.UPLOAD_DIRECTORY, ignore_errors=True)
+            logger.warning(f"Cleared existing uploaded files at: {config.UPLOAD_DIRECTORY}")
+
+        # Recreate clean directories
         os.makedirs(config.CHROMA_PERSIST_DIRECTORY, exist_ok=True)
-        
-        # Initialize Gemini
+        os.makedirs(config.UPLOAD_DIRECTORY, exist_ok=True)
+
+        # --- 🧠 Initialize Gemini ---
         genai.configure(api_key=config.GEMINI_API_KEY)
         gemini_model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        
-        # Initialize vector store
+
+        # --- 💾 Initialize Vector Store ---
         vector_store = VectorStore(
             persist_directory=config.CHROMA_PERSIST_DIRECTORY,
             collection_name=config.CHROMA_COLLECTION_NAME,
             embedding_model=config.EMBEDDING_MODEL
         )
-        
-        # Initialize document processor
+
+        # --- 📄 Initialize Document Processor ---
         doc_processor = DocumentProcessor()
-        
-        logger.info("Services initialized successfully")
+
+        logger.info("✅ Services initialized successfully (fresh start).")
+
     except Exception as e:
         logger.error(f"Failed to initialize services: {str(e)}")
         raise
