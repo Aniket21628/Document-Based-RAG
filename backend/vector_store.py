@@ -34,14 +34,17 @@ class VectorStore:
     def _initialize_client(self):
         """Initialize ChromaDB client with error handling"""
         try:
+            # Use a writable directory on Render, fallback to local path when running locally
+            db_path = "/tmp/chroma_db" if os.getenv("RENDER") else self.persist_directory
+
             client = chromadb.PersistentClient(
-                path=self.persist_directory,
+                path=db_path,
                 settings=Settings(
                     anonymized_telemetry=False,
                     allow_reset=True
                 )
             )
-            logger.info(f"ChromaDB client initialized at: {self.persist_directory}")
+            logger.info(f"ChromaDB client initialized at: {db_path}")
             return client
         except Exception as e:
             logger.error(f"Error initializing ChromaDB client: {str(e)}")
