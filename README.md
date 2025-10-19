@@ -1,118 +1,218 @@
-# Agentic RAG Chatbot
+# Document Based RAG Chatbot
 
-## Overview
-The Agentic RAG Chatbot is a Retrieval-Augmented Generation (RAG) system designed to process and analyze documents, enabling users to upload files (PDF, DOCX, PPTX, CSV, TXT, Markdown) and ask questions based on their content. The system leverages a microservices-like architecture with specialized agents for document ingestion, retrieval, and response generation, powered by FastAPI for the backend and ReactJS for the frontend. It uses ChromaDB for vector storage and Google Gemini for natural language processing.
+A production-ready Retrieval-Augmented Generation (RAG) chatbot system that enables intelligent Q&A over multiple document formats. Built with FastAPI, React, ChromaDB, and Google Gemini AI.
 
-## Features
-- **Document Processing**: Supports multiple file formats (PDF, DOCX, PPTX, CSV, TXT, Markdown) with dedicated parsers.
-- **Vector Search**: Uses ChromaDB and sentence transformers for efficient similarity search.
-- **Conversational AI**: Integrates Google Gemini for contextual question answering with conversation history.
-- **Agent-Based Architecture**: Implements an MCP for communication between ingestion, retrieval, LLM response, and coordinator agents.
-- **File Upload**: Allows users to upload documents up to 50MB via a ReactJS-based frontend.
-- **RESTful API**: Provides endpoints for file uploads, question answering, and conversation history management.
-- **CORS Support**: Configured for seamless integration with the ReactJS frontend running on `http://localhost:3000`.
+## 🌟 Features
 
-## Project Structure
-- **Backend**: Built with FastAPI, organized into agents and utilities.
-  - `config.py`: Configuration settings for API keys, directories, and server parameters.
-  - `mcp/`: For agent communication (`message_types.py`, `message_bus.py`).
-  - `parsers/`: Document parsers for different file types (`pdf_parser.py`, `docx_parser.py`, `pptx_parser.py`, `csv_parser.py`, `txt_parser.py`).
-  - `vector_store/`: ChromaDB integration for vector storage (`chroma_store.py`).
-  - `agents/`: Agent implementations (`base_agent.py`, `ingestion_agent.py`, `retrieval_agent.py`, `llm_response_agent.py`, `coordinator_agent.py`).
-  - `main.py`: FastAPI application with endpoints for health checks, file uploads, question answering, and conversation history.
-- **Frontend**: Built with ReactJS, using libraries like `axios` for API calls, `react-dropzone` for file uploads, and `react-markdown` for rendering responses.
-- **Dependencies**:
-  - Backend: FastAPI, Uvicorn, ChromaDB, Google Generative AI, Sentence Transformers, PyPDF2, python-docx, python-pptx, pandas, and more (see `requirements.txt`).
-  - Frontend: React, Tailwind CSS, Axios, React Dropzone, and testing libraries (see `package.json`).
+- **Multi-Format Document Support**: Process PDF, DOCX, PPTX, CSV, TXT, and Markdown files
+- **Intelligent Vector Search**: ChromaDB with Cohere embeddings for semantic document retrieval
+- **Conversational AI**: Google Gemini 2.0 Flash for contextual responses with conversation history
+- **Modern UI**: React with TypeScript and Tailwind CSS for a sleek, responsive interface
+- **Session Management**: Per-session conversation history tracking
+- **Real-time Processing**: Instant document indexing and query responses
+- **Source Attribution**: Transparent source citations for all responses
 
-## Prerequisites
+## 🏗️ Architecture
+
+### Backend Stack
+- **FastAPI**: High-performance async web framework
+- **ChromaDB**: Vector database for document embeddings
+- **Cohere Embeddings**: `embed-english-v3.0` for semantic search
+- **Google Gemini AI**: `gemini-2.0-flash-exp` for response generation
+- **Python 3.8+**: Core backend runtime
+
+### Frontend Stack
+- **React 19**: Modern UI framework
+- **TypeScript**: Type-safe development
+- **Tailwind CSS 4**: Utility-first styling
+- **Vite 7**: Lightning-fast build tool
+- **Lucide React**: Beautiful icon system
+
+### Key Components
+
+```
+backend/
+├── main.py                 # FastAPI application & endpoints
+├── config.py              # Configuration management
+├── document_parser.py     # Multi-format document processors
+├── vector_store.py        # ChromaDB integration
+└── requirements.txt       # Python dependencies
+
+frontend/
+├── src/
+│   ├── components/
+│   │   └── RAGChatbot.tsx # Main chat interface
+│   ├── App.tsx            # Root component
+│   └── main.tsx           # Entry point
+├── package.json           # Node dependencies
+└── vite.config.ts         # Vite configuration
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
 - **Python**: 3.8 or higher
 - **Node.js**: 16.x or higher
-- **Google Gemini API Key**: Set as the `GEMINI_API_KEY` environment variable.
-- **System Dependencies**: Ensure `libxml2` and `libxslt` are installed for `python-docx` and `python-pptx`.
-
-## Installation
+- **API Keys**:
+  - Google Gemini API Key
+  - Cohere API Key
 
 ### Backend Setup
-1. **Clone the Repository**:
+
+1. **Clone the Repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Aniket21628/Document-Based-RAG.git
    cd agentic-rag-chatbot
    ```
 
-2. **Create a Virtual Environment**:
+2. **Create Virtual Environment**
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   source venv/bin/activate  # Windows: venv\Scripts\activate
    ```
 
-3. **Install Backend Dependencies**:
+3. **Install Dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Set Environment Variables**:
+4. **Configure Environment Variables**
    ```bash
-   export GEMINI_API_KEY="your-gemini-api-key"  # On Windows: set GEMINI_API_KEY=your-gemini-api-key
+   # Create .env file in backend directory
+   echo "GEMINI_API_KEY=your-gemini-api-key" > .env
+   echo "COHERE_API_KEY=your-cohere-api-key" >> .env
    ```
 
-5. **Run the Backend**:
+5. **Run Backend Server**
    ```bash
-   python main.py
+   uvicorn main:app --reload
    ```
-   The FastAPI server will start on `http://0.0.0.0:8000`.
+   Server starts at `http://0.0.0.0:8000`
 
 ### Frontend Setup
-1. **Navigate to the Frontend Directory**:
+
+1. **Navigate to Frontend Directory**
    ```bash
    cd frontend
    ```
 
-2. **Install Frontend Dependencies**:
+2. **Install Dependencies**
    ```bash
    npm install
    ```
 
-3. **Run the Frontend**:
+3. **Configure API Endpoint** (optional)
+   ```bash
+   # Create .env file in frontend directory
+   echo "VITE_API_BASE_URL=http://localhost:8000" > .env
+   ```
+
+4. **Run Development Server**
    ```bash
    npm run dev
    ```
-   The ReactJS + Vite app will start on `http://localhost:5173`.
+   Application starts at `http://localhost:5173`
 
-## Usage
-1. **Upload Documents**:
-   - Use the ReactJS frontend to upload supported document types (PDF, DOCX, PPTX, CSV, TXT, Markdown).
-   - Alternatively, use the `/upload` endpoint via tools like Postman:
-     ```bash
-     curl -X POST -F "files=@document.pdf" http://localhost:8000/upload
-     ```
+## 📖 Usage
 
-2. **Ask Questions**:
-   - Submit questions via the frontend or the `/ask` endpoint:
-     ```bash
-     curl -X POST -H "Content-Type: application/json" -d '{"question": "What is the main topic of the document?", "session_id": "user123"}' http://localhost:8000/ask
-     ```
+### Uploading Documents
 
-3. **Clear Conversation History**:
-   - Clear history for a session using the `/conversation/{session_id}` DELETE endpoint:
-     ```bash
-     curl -X DELETE http://localhost:8000/conversation/user123
-     ```
+1. Click the upload area or drag-and-drop files
+2. Supported formats: PDF, DOCX, PPTX, CSV, TXT, MD
+3. Files are automatically processed and indexed
+4. Maximum file size: 50MB per file
 
-## API Endpoints
-- **GET /**: Health check endpoint.
-- **GET /health**: Detailed health status, including agent initialization and directory configurations.
-- **POST /upload**: Upload and process documents (returns processed file list and status).
-- **POST /ask**: Ask a question based on indexed documents (returns answer, sources, and confidence).
-- **GET /conversation/{session_id}**: Retrieve conversation history for a session.
-- **DELETE /conversation/{session_id}**: Clear conversation history for a session.
+### Asking Questions
 
-## Configuration
-- **Backend**: Modify `config.py` to adjust settings like `CHROMA_PERSIST_DIRECTORY`, `UPLOAD_DIRECTORY`, `MAX_FILE_SIZE`, or `EMBEDDING_MODEL`.
-- **Frontend**: Update `package.json` for additional dependencies or scripts, and configure CORS in `main.py` if the frontend URL changes.
+1. Type your question in the input field
+2. Press Enter or click Send
+3. Receive AI-generated responses with source citations
+4. View confidence scores and relevant document sections
 
-## Development Notes
-- **Logging**: Configured to provide detailed error and info logs for debugging.
-- **Error Handling**: Comprehensive error handling in agents and API endpoints ensures robust operation.
-- **Scalability**: The agent-based architecture and message bus allow for easy extension with additional agents or parsers.
-- **Security**: Ensure the Gemini API key is securely stored and not exposed in version control.
+
+## 🔌 API Endpoints
+
+### Core Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Detailed health status |
+| POST | `/upload` | Upload and process documents |
+| POST | `/ask` | Ask questions with context |
+| GET | `/conversation/{session_id}` | Get conversation history |
+| DELETE | `/conversation/{session_id}` | Clear conversation history |
+
+## ⚙️ Configuration
+
+### Backend Configuration (`config.py`)
+
+```python
+GEMINI_API_KEY: str          # Required: Google Gemini API key
+COHERE_API_KEY: str          # Required: Cohere API key
+CHROMA_PERSIST_DIRECTORY: str # Vector DB storage path
+UPLOAD_DIRECTORY: str         # Uploaded files directory
+EMBEDDING_MODEL: str          # "embed-english-v3.0"
+MAX_FILE_SIZE: int           # 50MB default
+HOST: str                     # "0.0.0.0"
+PORT: int                     # 8000
+```
+
+### Environment Variables
+
+**Backend (.env)**
+```env
+GEMINI_API_KEY=your-gemini-api-key
+COHERE_API_KEY=your-cohere-api-key
+CHROMA_PERSIST_DIRECTORY=/tmp/chroma_db  # Optional
+UPLOAD_DIR=/tmp/uploads                   # Optional
+PORT=8000                                  # Optional
+```
+
+**Frontend (.env)**
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+
+## 📝 Document Processing
+
+### Supported Formats
+
+| Format | Extension | Features |
+|--------|-----------|----------|
+| PDF | `.pdf` | Text extraction, page numbers |
+| Word | `.docx` | Paragraphs, tables |
+| PowerPoint | `.pptx` | Slides, shapes, tables |
+| CSV | `.csv` | Headers, statistics, preview |
+| Text | `.txt` | Plain text |
+| Markdown | `.md` | Formatted text |
+
+### Processing Pipeline
+
+1. **File Upload**: Validated and saved temporarily
+2. **Text Extraction**: Format-specific parsing
+3. **Chunking**: Split into 1000-word chunks with 200-word overlap
+4. **Embedding**: Generated using Cohere's `embed-english-v3.0`
+5. **Storage**: Stored in ChromaDB with metadata
+6. **Indexing**: Ready for semantic search
+
+## 🚀 Deployment
+
+### Render.com (Recommended)
+
+1. Create new Web Service
+2. Connect GitHub repository
+3. Configure build:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Start command:
+   ```bash
+   python main.py
+   ```
+5. Add environment variables in dashboard
+6. Deploy frontend as separate Static Site
+
+
+Built with ❤️ using FastAPI, React, and AI
