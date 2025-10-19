@@ -1,6 +1,6 @@
 import chromadb
 from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
+import cohere
 from typing import List, Dict, Any
 import logging
 import uuid
@@ -23,7 +23,8 @@ class VectorStore:
         
         # Initialize embedding model
         logger.info(f"Loading embedding model: {embedding_model}")
-        self.embedding_model = SentenceTransformer(embedding_model)
+        self.cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
+        self.embedding_model = embedding_model  # Keep for logging only
         
         # Initialize ChromaDB client with retry logic
         self.client = self._initialize_client()
@@ -149,8 +150,9 @@ class VectorStore:
                 chunk_metadata = {k: str(v) for k, v in chunk_metadata.items()}
                 
                 # Generate embedding
-                embedding = self.embedding_model.encode(chunk).tolist()
-                
+                response = self.cohere_client.embed(texts=[chunk], model="embed-english-v3.0")
+                embedding = response.embeddings[0]
+
                 chunk_ids.append(chunk_id)
                 chunk_texts.append(chunk)
                 chunk_embeddings.append(embedding)
@@ -180,8 +182,9 @@ class VectorStore:
                 return []
             
             # Generate query embedding
-            query_embedding = self.embedding_model.encode(query).tolist()
-            
+            response = self.cohere_client.embed(texts=[query], model="embed-english-v3.0")
+            query_embedding = response.embeddings[0]
+
             # Adjust top_k if collection has fewer items
             actual_top_k = min(top_k, count)
             
