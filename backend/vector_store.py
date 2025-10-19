@@ -62,25 +62,9 @@ class VectorStore:
 
     
     def _get_or_create_collection(self):
-        """Get or create collection with compatibility handling"""
-        try:
-            # Try to get existing collection
-            collection = self.client.get_collection(self.collection_name)
-            logger.info(f"Loaded existing collection: {self.collection_name}")
-            return collection
-        except KeyError as e:
-            # ChromaDB version incompatibility - reset and recreate
-            logger.warning(f"Collection incompatible (KeyError: {str(e)}). Resetting ChromaDB...")
-            return self._reset_and_create_collection()
-        except ValueError as e:
-            # Collection doesn't exist - create it
-            logger.info(f"Collection doesn't exist. Creating: {self.collection_name}")
-            return self._create_collection()
-        except Exception as e:
-            logger.error(f"Unexpected error accessing collection: {str(e)}")
-            logger.warning("Attempting to reset ChromaDB...")
-            return self._reset_and_create_collection()
-    
+        logger.info("Creating new ChromaDB collection (Render-safe mode).")
+        return self.client.create_collection(self.collection_name)
+
     def _create_collection(self):
         """Create a new collection"""
         try:
