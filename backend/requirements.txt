@@ -11,3 +11,5 @@ markdown==3.7
 python-dotenv==1.0.1
 torch==2.5.1
 cohere
+Pillow==10.4.0
+pytesseract==0.3.13

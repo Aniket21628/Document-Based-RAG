@@ -87,7 +87,7 @@ def initialize_services():
 
         # --- 🧠 Initialize Gemini ---
         genai.configure(api_key=config.GEMINI_API_KEY)
-        gemini_model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        gemini_model = genai.GenerativeModel('gemini-3.7-flash')
 
         # --- 💾 Initialize Vector Store ---
         vector_store = VectorStore(
@@ -131,7 +131,7 @@ async def upload_documents(files: List[UploadFile] = File(...)):
     logger.info(f"Received upload request with {len(files)} files")
     
     try:
-        supported_extensions = {'.pdf', '.docx', '.pptx', '.csv', '.txt', '.md'}
+        supported_extensions = {'.pdf', '.docx', '.pptx', '.csv', '.txt', '.md', '.png', '.jpg', '.jpeg'}
         file_paths = []
         processed_files = []
 

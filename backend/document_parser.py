@@ -7,6 +7,8 @@ from pptx import Presentation
 import pandas as pd
 import markdown
 import re
+import pytesseract
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,9 @@ class DocumentProcessor:
             '.csv': self._process_csv,
             '.txt': self._process_txt,
             '.md': self._process_md,
+            '.png': self._process_image,
+            '.jpg': self._process_image,
+            '.jpeg': self._process_image,
         }
         
         processor = processors.get(ext)
@@ -189,4 +194,23 @@ class DocumentProcessor:
             }
         except Exception as e:
             logger.error(f"Error parsing Markdown {file_path}: {str(e)}")
+            raise
+
+    def _process_image(self, file_path: str) -> Dict[str, Any]:
+        """Process Image file using OCR"""
+        try:
+            with Image.open(file_path) as img:
+                text_content = pytesseract.image_to_string(img)
+                
+            return {
+                "content": text_content,
+                "metadata": {
+                    "file_type": "image",
+                    "file_path": file_path,
+                    "character_count": len(text_content),
+                    "word_count": len(text_content.split())
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error parsing Image {file_path}: {str(e)}")
             raise
