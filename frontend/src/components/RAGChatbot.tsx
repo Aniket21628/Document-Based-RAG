@@ -194,7 +194,7 @@ const RAGChatbot: React.FC = () => {
                 <Bot className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">Agentic RAG Chatbot</h1>
+                <h1 className="text-2xl font-bold text-white">RAG Chatbot</h1>
                 <p className="text-purple-200 text-sm">Multi-format Document QA</p>
               </div>
             </div>

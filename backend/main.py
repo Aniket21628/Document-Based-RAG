@@ -182,7 +182,7 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         )
 
 @app.post("/ask", response_model=QuestionResponse)
-async def ask_question(request: QuestionRequest):
+def ask_question(request: QuestionRequest):
     """Ask a question based on uploaded documents"""
     logger.info(f"Received question: {request.question}")
     
@@ -223,8 +223,8 @@ async def ask_question(request: QuestionRequest):
         # Create prompt
         prompt = create_prompt(request.question, context, history)
         
-        # Generate answer asynchronously so it doesn't block FastAPI's event loop
-        response = await gemini_model.generate_content_async(prompt)
+        # Generate answer synchronously (FastAPI runs this in a threadpool)
+        response = gemini_model.generate_content(prompt)
         answer = response.text
         
         # Extract sources
