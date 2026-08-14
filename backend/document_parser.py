@@ -1,12 +1,16 @@
 import os
 import logging
 from typing import Dict, Any
+# pyrefly: ignore [missing-import]
 import PyPDF2
+# pyrefly: ignore [missing-import]
 from docx import Document
+# pyrefly: ignore [missing-import]
 from pptx import Presentation
 import pandas as pd
 import markdown
 import re
+# pyrefly: ignore [missing-import]
 import pytesseract
 from PIL import Image
 

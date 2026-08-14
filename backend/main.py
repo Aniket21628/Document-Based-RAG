@@ -9,6 +9,7 @@ import google.generativeai as genai
 from config import config
 from document_parser import DocumentProcessor
 from vector_store import VectorStore
+from guardrails import SecurityGuard
 
 # Configure logging
 logging.basicConfig(
@@ -36,6 +37,7 @@ app.add_middleware(
 # Global variables
 vector_store: Optional[VectorStore] = None
 doc_processor: Optional[DocumentProcessor] = None
+security_guard: Optional[SecurityGuard] = None
 conversation_history: Dict[str, List[Dict[str, str]]] = {}
 gemini_model = None
 
@@ -62,7 +64,7 @@ class UploadResponse(BaseModel):
 
 def initialize_services():
     """Initialize services on startup (auto-clears ChromaDB + uploads each restart)"""
-    global vector_store, doc_processor, gemini_model
+    global vector_store, doc_processor, gemini_model, security_guard
     
     try:
         logger.info("Initializing services...")
@@ -86,8 +88,9 @@ def initialize_services():
         os.makedirs(config.UPLOAD_DIRECTORY, exist_ok=True)
 
         # --- 🧠 Initialize Gemini ---
-        genai.configure(api_key=config.GEMINI_API_KEY)
-        gemini_model = genai.GenerativeModel('gemini-3.7-flash')
+        # Use transport="rest" to prevent gRPC hanging issues on Render/serverless
+        genai.configure(api_key=config.GEMINI_API_KEY, transport="rest")
+        gemini_model = genai.GenerativeModel('gemini-3.7-flash')  # Note: You may need to change this to gemini-1.5-flash if 3.7 doesn't exist yet
 
         # --- 💾 Initialize Vector Store ---
         vector_store = VectorStore(
@@ -98,6 +101,9 @@ def initialize_services():
 
         # --- 📄 Initialize Document Processor ---
         doc_processor = DocumentProcessor()
+
+        # --- 🛡️ Initialize Security Guard ---
+        security_guard = SecurityGuard()
 
         logger.info("✅ Services initialized successfully (fresh start).")
 
@@ -184,6 +190,19 @@ async def ask_question(request: QuestionRequest):
         if not request.question.strip():
             raise HTTPException(status_code=400, detail="Question cannot be empty")
 
+        # 🛡️ Run Guardrails Check
+        is_safe, safe_query, error_message = security_guard.check_input(request.question)
+        if not is_safe:
+            return QuestionResponse(
+                success=False,
+                error=error_message,
+                sources=[],
+                confidence=0.0
+            )
+        
+        # Use the potentially redacted query
+        request.question = safe_query
+
         # Retrieve relevant documents
         results = vector_store.similarity_search(request.question, top_k=5)
         
@@ -204,8 +223,8 @@ async def ask_question(request: QuestionRequest):
         # Create prompt
         prompt = create_prompt(request.question, context, history)
         
-        # Generate answer
-        response = gemini_model.generate_content(prompt)
+        # Generate answer asynchronously so it doesn't block FastAPI's event loop
+        response = await gemini_model.generate_content_async(prompt)
         answer = response.text
         
         # Extract sources

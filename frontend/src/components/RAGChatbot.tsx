@@ -195,7 +195,7 @@ const RAGChatbot: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white">Agentic RAG Chatbot</h1>
-                <p className="text-purple-200 text-sm">Multi-format Document QA with MCP</p>
+                <p className="text-purple-200 text-sm">Multi-format Document QA</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -233,7 +233,7 @@ const RAGChatbot: React.FC = () => {
                   Click to upload documents
                 </p>
                 <p className="text-purple-300 text-xs">
-                  PDF, DOCX, PPTX, CSV, TXT, MD
+                  PDF, DOCX, PPTX, CSV, TXT, MD, PNG, JPG, JPEG
                 </p>
               </div>
 
@@ -241,7 +241,7 @@ const RAGChatbot: React.FC = () => {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.docx,.pptx,.csv,.txt,.md"
+                accept=".pdf,.docx,.pptx,.csv,.txt,.md,.png,.jpg,.jpeg"
                 onChange={(e) => handleFileUpload(e.target.files)}
                 className="hidden"
               />
