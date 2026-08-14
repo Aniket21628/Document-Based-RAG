@@ -4,7 +4,8 @@ A production-ready Retrieval-Augmented Generation (RAG) chatbot system that enab
 
 ## 🌟 Features
 
-- **Multi-Format Document Support**: Process PDF, DOCX, PPTX, CSV, TXT, and Markdown files
+- **Multi-Format Document Support**: Process PDF, DOCX, PPTX, CSV, TXT, Markdown, and Images (PNG/JPG/JPEG via Tesseract OCR)
+- **Robust Security Guardrails**: 5-layer protection including prompt injection defense, SQL/Command injection blocking, toxicity filters, and real-time PII redaction.
 - **Intelligent Vector Search**: ChromaDB with Cohere embeddings for semantic document retrieval
 - **Conversational AI**: Google Gemini 2.0 Flash for contextual responses with conversation history
 - **Modern UI**: React with TypeScript and Tailwind CSS for a sleek, responsive interface
@@ -119,7 +120,7 @@ frontend/
 ### Uploading Documents
 
 1. Click the upload area or drag-and-drop files
-2. Supported formats: PDF, DOCX, PPTX, CSV, TXT, MD
+2. Supported formats: PDF, DOCX, PPTX, CSV, TXT, MD, PNG, JPG, JPEG
 3. Files are automatically processed and indexed
 4. Maximum file size: 50MB per file
 
@@ -187,6 +188,7 @@ VITE_API_BASE_URL=http://localhost:8000
 | CSV | `.csv` | Headers, statistics, preview |
 | Text | `.txt` | Plain text |
 | Markdown | `.md` | Formatted text |
+| Images | `.png`, `.jpg`, `.jpeg` | OCR Text extraction via Tesseract |
 
 ### Processing Pipeline
 
@@ -201,18 +203,14 @@ VITE_API_BASE_URL=http://localhost:8000
 
 ### Render.com (Recommended)
 
-1. Create new Web Service
-2. Connect GitHub repository
-3. Configure build:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Start command:
-   ```bash
-   python main.py
-   ```
-5. Add environment variables in dashboard
-6. Deploy frontend as separate Static Site
+Because this project uses Tesseract OCR for image processing, it requires system-level OS dependencies. The backend must be deployed using **Docker**.
+
+1. Create a new Web Service on Render
+2. Connect your GitHub repository
+3. Set the **Environment** to `Docker`
+4. Set the Docker Context / Dockerfile path to `./backend` (or `./backend/Dockerfile` depending on repo structure)
+5. Add your environment variables (`GEMINI_API_KEY`, `COHERE_API_KEY`) in the Render dashboard
+6. Deploy the frontend as a separate Static Site
 
 
 Built with ❤️ using FastAPI, React, and AI
